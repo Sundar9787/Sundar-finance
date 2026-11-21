@@ -265,6 +265,47 @@
                 </form>
             </section>
 
+            
+<!-- MANAGE EXPENSE CATEGORIES -->
+<section class="form-section" id="category-section">
+
+    <div class="form-title-row">
+        <div>
+            <p class="eyebrow">CUSTOM SETTINGS</p>
+            <h3>Manage Expense Categories</h3>
+        </div>
+
+        <button type="button"
+            class="close-section"
+            onclick="closeFormSections()">×</button>
+    </div>
+
+    <form id="categoryForm">
+
+        <label for="newCategoryName">New Category Name</label>
+
+        <input
+            type="text"
+            id="newCategoryName"
+            placeholder="Example: RD, Home, Investments"
+            required
+        >
+
+        <button type="submit">Add Category</button>
+
+    </form>
+
+    <div class="section-heading">
+        <h3>Your Categories</h3>
+    </div>
+
+    <div id="expenseCategoryList">
+        <p class="empty">Loading categories...</p>
+    </div>
+
+</section>
+
+
 
             <!-- FRIEND OWES ME -->
             <section class="form-section" id="split-section">

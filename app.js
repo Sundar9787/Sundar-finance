@@ -27,7 +27,7 @@ function roundMoney(amount) {
     return Math.round((amount + Number.EPSILON) * 100) / 100;
 }
 
-// Open IndexedDB
+
 function openDatabase() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -62,33 +62,19 @@ function openDatabase() {
                     autoIncrement: true
                 });
             }
-            // Custom expense categories
-if (!database.objectStoreNames.contains("categories")) {
-    const categoryStore = database.createObjectStore("categories", {
-        keyPath: "name"
-    });
 
-    [
-        "Rent",
-        "Food",
-        "Groceries",
-        "Travel",
-        "Shopping",
-        "Electricity",
-        "Mobile Recharge",
-        "Entertainment",
-        "Medical",
-        "Other"
-    ].forEach(name => {
-        categoryStore.add({ name });
-    });
-}
+            if (!database.objectStoreNames.contains("categories")) {
+                database.createObjectStore("categories", {
+                    keyPath: "name"
+                });
+            }
         };
 
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
     });
 }
+
 
 // Get all records
 function getAll(storeName) {
@@ -102,8 +88,38 @@ function getAll(storeName) {
 }
 // -------------------- EXPENSE CATEGORY MANAGEMENT --------------------
 
+
 async function loadExpenseCategories() {
-    const categories = await getAll("categories");
+    let categories = await getAll("categories");
+
+    const defaultCategories = [
+        "Rent",
+        "Food",
+        "Groceries",
+        "Travel",
+        "Shopping",
+        "Electricity",
+        "Mobile Recharge",
+        "Entertainment",
+        "Medical",
+        "Other"
+    ];
+
+    if (categories.length === 0) {
+        const transaction = db.transaction("categories", "readwrite");
+        const store = transaction.objectStore("categories");
+
+        defaultCategories.forEach(name => {
+            store.add({ name });
+        });
+
+        await new Promise((resolve, reject) => {
+            transaction.oncomplete = resolve;
+            transaction.onerror = () => reject(transaction.error);
+        });
+
+        categories = await getAll("categories");
+    }
 
     categories.sort((a, b) => a.name.localeCompare(b.name));
 
@@ -128,6 +144,7 @@ async function loadExpenseCategories() {
 
     renderExpenseCategoryList(categories);
 }
+
 
 function renderExpenseCategoryList(categories) {
     const container = document.getElementById("expenseCategoryList");
@@ -1324,11 +1341,14 @@ window.deleteExpenseCategory = deleteExpenseCategory;
 
 // -------------------- START APPLICATION --------------------
 
+
 async function startApp() {
     try {
         db = await openDatabase();
 
         showPage("home-page");
+
+        await loadExpenseCategories();
 
         [
             "incomeDate",
@@ -1348,16 +1368,17 @@ async function startApp() {
         if (insightsMonth && !insightsMonth.value) {
             insightsMonth.value = today().slice(0, 7);
         }
-        await loadExpenseCategories();
+
         await refreshDashboard();
 
-        console.log("My Finance is ready!");
+        console.log("Sundar's Finance is ready!");
 
     } catch (error) {
         console.error("Database error:", error);
         alert("Unable to start the finance app. Please refresh the page.");
     }
 }
+
 
 
 // -------------------- ADDITIONAL INSIGHTS CHARTS --------------------

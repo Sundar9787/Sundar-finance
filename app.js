@@ -1,6 +1,6 @@
 
 const DB_NAME = "MyFinanceDB";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let db;
 
@@ -62,6 +62,27 @@ function openDatabase() {
                     autoIncrement: true
                 });
             }
+            // Custom expense categories
+if (!database.objectStoreNames.contains("categories")) {
+    const categoryStore = database.createObjectStore("categories", {
+        keyPath: "name"
+    });
+
+    [
+        "Rent",
+        "Food",
+        "Groceries",
+        "Travel",
+        "Shopping",
+        "Electricity",
+        "Mobile Recharge",
+        "Entertainment",
+        "Medical",
+        "Other"
+    ].forEach(name => {
+        categoryStore.add({ name });
+    });
+}
         };
 
         request.onsuccess = () => resolve(request.result);
@@ -78,6 +99,203 @@ function getAll(storeName) {
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
     });
+}
+// -------------------- EXPENSE CATEGORY MANAGEMENT --------------------
+
+async function loadExpenseCategories() {
+    const categories = await getAll("categories");
+
+    categories.sort((a, b) => a.name.localeCompare(b.name));
+
+    const dropdown = document.getElementById("expenseCategory");
+
+    if (dropdown) {
+        const selectedValue = dropdown.value;
+
+        dropdown.innerHTML = `
+            <option value="">Select category</option>
+            ${categories.map(category => `
+                <option value="${escapeHTML(category.name)}">
+                    ${escapeHTML(category.name)}
+                </option>
+            `).join("")}
+        `;
+
+        if (categories.some(category => category.name === selectedValue)) {
+            dropdown.value = selectedValue;
+        }
+    }
+
+    renderExpenseCategoryList(categories);
+}
+
+function renderExpenseCategoryList(categories) {
+    const container = document.getElementById("expenseCategoryList");
+
+    if (!container) return;
+
+    if (categories.length === 0) {
+        container.innerHTML = "<p>No categories added yet.</p>";
+        return;
+    }
+
+    container.innerHTML = categories.map(category => `
+        <div class="transaction-item">
+            <div>
+                <strong>${escapeHTML(category.name)}</strong>
+            </div>
+
+            <div>
+                <button type="button"
+                    data-category-action="rename"
+                    data-category-name="${escapeHTML(category.name)}">
+                    Rename
+                </button>
+
+                <button type="button"
+                    data-category-action="delete"
+                    data-category-name="${escapeHTML(category.name)}">
+                    Delete
+                </button>
+            </div>
+        </div>
+    `).join("");
+
+    container.querySelectorAll("[data-category-action]").forEach(button => {
+        button.addEventListener("click", function () {
+            const action = this.dataset.categoryAction;
+            const categoryName = this.dataset.categoryName;
+
+            if (action === "rename") {
+                renameExpenseCategory(categoryName);
+            } else if (action === "delete") {
+                deleteExpenseCategory(categoryName);
+            }
+        });
+    });
+}
+
+// Add a new category
+const categoryForm = document.getElementById("categoryForm");
+
+if (categoryForm) {
+    categoryForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        const input = document.getElementById("newCategoryName");
+        const name = input.value.trim();
+
+        if (!name) {
+            alert("Please enter a category name.");
+            return;
+        }
+
+        const categories = await getAll("categories");
+
+        const alreadyExists = categories.some(category =>
+            category.name.toLowerCase() === name.toLowerCase()
+        );
+
+        if (alreadyExists) {
+            alert("This category already exists.");
+            return;
+        }
+
+        const transaction = db.transaction("categories", "readwrite");
+
+        transaction.objectStore("categories").add({ name });
+
+        transaction.oncomplete = async () => {
+            input.value = "";
+            await loadExpenseCategories();
+            alert("Category added successfully!");
+        };
+
+        transaction.onerror = () => {
+            alert("Could not add category.");
+        };
+    });
+}
+
+// Rename a category and update its existing expense records
+async function renameExpenseCategory(oldName) {
+    const newName = prompt("Enter the new category name:", oldName);
+
+    if (newName === null) return;
+
+    const cleanedName = newName.trim();
+
+    if (!cleanedName) {
+        alert("Category name cannot be empty.");
+        return;
+    }
+
+    if (cleanedName.toLowerCase() === oldName.toLowerCase()) {
+        return;
+    }
+
+    const categories = await getAll("categories");
+
+    const duplicate = categories.some(category =>
+        category.name.toLowerCase() === cleanedName.toLowerCase()
+    );
+
+    if (duplicate) {
+        alert("A category with this name already exists.");
+        return;
+    }
+
+    const expenses = await getAll("expenses");
+
+    const transaction = db.transaction(
+        ["categories", "expenses"],
+        "readwrite"
+    );
+
+    const categoryStore = transaction.objectStore("categories");
+    const expenseStore = transaction.objectStore("expenses");
+
+    categoryStore.delete(oldName);
+    categoryStore.add({ name: cleanedName });
+
+    expenses.forEach(expense => {
+        if (expense.category === oldName) {
+            expense.category = cleanedName;
+            expenseStore.put(expense);
+        }
+    });
+
+    transaction.oncomplete = async () => {
+        await loadExpenseCategories();
+        await refreshDashboard();
+        alert("Category renamed successfully!");
+    };
+
+    transaction.onerror = () => {
+        alert("Could not rename category.");
+    };
+}
+
+// Delete a category
+async function deleteExpenseCategory(name) {
+    const confirmed = confirm(
+        `Delete the category "${name}"?\n\nExisting expenses will remain in your transaction history and Insights.`
+    );
+
+    if (!confirmed) return;
+
+    const transaction = db.transaction("categories", "readwrite");
+
+    transaction.objectStore("categories").delete(name);
+
+    transaction.oncomplete = async () => {
+        await loadExpenseCategories();
+        alert("Category deleted successfully!");
+    };
+
+    transaction.onerror = () => {
+        alert("Could not delete category.");
+    };
 }
 
 // Calculate payments made against a split
@@ -122,7 +340,7 @@ document.getElementById("incomeForm").addEventListener("submit", function (event
     transaction.oncomplete = async () => {
         event.target.reset();
         document.getElementById("incomeDate").value = today();
-
+        await loadExpenseCategories();
         await refreshDashboard();
 
         alert("Income added successfully!");
@@ -1100,6 +1318,8 @@ window.closeFormSections = closeFormSections;
 window.editTransaction = editTransaction;
 window.deleteTransaction = deleteTransaction;
 window.recordSettlement = recordSettlement;
+window.renameExpenseCategory = renameExpenseCategory;
+window.deleteExpenseCategory = deleteExpenseCategory;
 
 
 // -------------------- START APPLICATION --------------------
@@ -1128,7 +1348,7 @@ async function startApp() {
         if (insightsMonth && !insightsMonth.value) {
             insightsMonth.value = today().slice(0, 7);
         }
-
+        await loadExpenseCategories();
         await refreshDashboard();
 
         console.log("My Finance is ready!");

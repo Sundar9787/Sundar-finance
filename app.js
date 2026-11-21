@@ -86,6 +86,27 @@ function getAll(storeName) {
         request.onerror = () => reject(request.error);
     });
 }
+
+// Load previously used people into dropdown suggestions
+async function loadPeople() {
+    const splits = await getAll("splits");
+
+    const people = [
+        ...new Set(
+            splits
+                .map(item => item.person?.trim())
+                .filter(Boolean)
+        )
+    ].sort((a, b) => a.localeCompare(b));
+
+    const datalist = document.getElementById("savedPeopleList");
+
+    if (!datalist) return;
+
+    datalist.innerHTML = people.map(person => `
+        <option value="${escapeHTML(person)}"></option>
+    `).join("");
+}
 // -------------------- EXPENSE CATEGORY MANAGEMENT --------------------
 
 
@@ -449,7 +470,7 @@ document.getElementById("splitForm").addEventListener("submit", function (event)
     transaction.oncomplete = async () => {
         event.target.reset();
         document.getElementById("splitDate").value = today();
-
+        await loadPeople();
         await refreshDashboard();
 
         alert("Shared expense added successfully!");
@@ -487,7 +508,7 @@ document.getElementById("payableForm").addEventListener("submit", function (even
     transaction.oncomplete = async () => {
         event.target.reset();
         document.getElementById("debtDate").value = today();
-
+        await loadPeople();
         await refreshDashboard();
 
         alert("Your debt has been recorded!");
@@ -1349,6 +1370,7 @@ async function startApp() {
         showPage("home-page");
 
         await loadExpenseCategories();
+        await loadPeople();
 
         [
             "incomeDate",

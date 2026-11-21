@@ -349,11 +349,14 @@
 
                 <form id="splitForm">
 
-                    <label for="personName">Friend's Name</label>
-                    <input type="text"
-                        id="personName"
-                        placeholder="Roommate / Friend"
-                        required>
+                    <label for="personName">Person Name</label>
+<input
+    type="text"
+    id="personName"
+    list="savedPeopleList"
+    placeholder="Select or enter a person's name"
+    required
+>
 
                     <label for="splitDescription">Description</label>
                     <input type="text"
@@ -374,6 +377,7 @@
                     <button type="submit">Save Shared Expense</button>
 
                 </form>
+                <datalist id="savedPeopleList"></datalist>
             </section>
 
 
@@ -397,11 +401,14 @@
 
                 <form id="payableForm">
 
-                    <label for="debtPersonName">Friend's Name</label>
-                    <input type="text"
-                        id="debtPersonName"
-                        placeholder="Enter friend's name"
-                        required>
+                    <label for="debtPersonName">Person Name</label>
+<input
+    type="text"
+    id="debtPersonName"
+    list="savedPeopleList"
+    placeholder="Select or enter a person's name"
+    required
+>
 
                     <label for="debtDescription">Expense Description</label>
                     <input type="text"
@@ -422,6 +429,7 @@
                     <button type="submit">Save Debt</button>
 
                 </form>
+                <datalist id="savedPeopleList"></datalist>
             </section>
 
 
